@@ -82,7 +82,6 @@ const Task = () => {
 
   const loadMore = () => {
     if (hasNextPage) {
-      console.log(endCursor,"end cursor");
       fetchPhotos(endCursor);
     }
   };
