@@ -20,7 +20,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../redux/store/store';
 import { setSelectedPhotos } from '../redux/slice/photoslice';
 import { resetUploadProgress, setUploadProgress } from '../redux/slice/uploadSlice';
-import * as Progress from 'react-native-progress'; // Import the progress library
+import * as Progress from 'react-native-progress'; 
 
 const Task = () => {
   const [renderedPhotos, setRenderPhotos] = useState<PhotoIdentifier[]>([]);
@@ -77,7 +77,6 @@ const Task = () => {
       after,
       assetType: 'Photos',
     });
-    console.log(JSON.stringify(photos), "PHOTOS")
     setHasNextPage(photos.page_info.has_next_page);
     setEndCursor(photos.page_info.end_cursor);
     setRenderPhotos(prev =>
