@@ -1,5 +1,6 @@
 import { PermissionsAndroid, Platform } from "react-native";
-
+import storage from '@react-native-firebase/storage';
+import { PhotoIdentifier } from '@react-native-camera-roll/camera-roll';
 export async function hasAndroidPermission() {
         try {
             if (Platform.OS === 'android' && Platform.Version >= 33) {
@@ -29,3 +30,30 @@ export async function hasAndroidPermission() {
             return false;
         }
     }
+
+export const uploadImagesToFirebase = async (images: PhotoIdentifier[], onProgress: (progress: number) => void): Promise<string[]> => {
+    const uploadPromises = images.map(async (image) => {
+        const uri = image.node.image.uri; 
+        console.log('Uploading file from URI:', uri); 
+        const filename = uri.substring(uri.lastIndexOf('/') + 1); 
+        const reference = storage().ref(`images/${filename}`); 
+
+        const task = reference.putFile(uri);
+
+        task.on('state_changed', (taskSnapshot) => {
+            const progress = (taskSnapshot.bytesTransferred / taskSnapshot.totalBytes) * 100; 
+            onProgress(progress); 
+        });
+
+        try {
+            await task;
+        } catch (error) {
+            console.error('Upload failed:', error);
+            throw error; 
+        }
+
+        return await reference.getDownloadURL();
+    });
+
+    return Promise.all(uploadPromises);
+};

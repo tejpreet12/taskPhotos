@@ -7,18 +7,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CameraRoll,
   PhotoIdentifier,
 } from '@react-native-camera-roll/camera-roll';
-import {hasAndroidPermission} from '../Utils/Helpers';
-import {TEXT} from '../Utils/Constants';
-import {ms, mvs} from '../Utils/ScalingUtils';
-import {Images} from '../assets/Images/Images';
-import {useDispatch, useSelector} from 'react-redux';
-import {RootState} from '../redux/store/store';
-import {setSelectedPhotos} from '../redux/slice/photoslice';
+import { hasAndroidPermission, uploadImagesToFirebase } from '../Utils/Helpers';
+import { TEXT } from '../Utils/Constants';
+import { ms, mvs } from '../Utils/ScalingUtils';
+import { Images } from '../assets/Images/Images';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../redux/store/store';
+import { setSelectedPhotos } from '../redux/slice/photoslice';
+import { resetUploadProgress, setUploadProgress } from '../redux/slice/uploadSlice';
+import * as Progress from 'react-native-progress'; // Import the progress library
 
 const Task = () => {
   const [renderedPhotos, setRenderPhotos] = useState<PhotoIdentifier[]>([]);
@@ -29,6 +31,9 @@ const Task = () => {
   const dispatch = useDispatch();
   const selectedPhotos = useSelector(
     (state: RootState) => state.photos.selectedPhotos,
+  );
+  const uploadProgress = useSelector(
+    (state: RootState) => state.upload.progress
   );
 
   useEffect(() => {
@@ -72,7 +77,7 @@ const Task = () => {
       after,
       assetType: 'Photos',
     });
-    console.log(JSON.stringify(photos),"PHOTOS")
+    console.log(JSON.stringify(photos), "PHOTOS")
     setHasNextPage(photos.page_info.has_next_page);
     setEndCursor(photos.page_info.end_cursor);
     setRenderPhotos(prev =>
@@ -86,6 +91,18 @@ const Task = () => {
     }
   };
 
+  const handleUpload = async () => {
+    dispatch(resetUploadProgress());
+    try {
+      const downloadUrls = await uploadImagesToFirebase(selectedPhotos, (progress) => {
+        dispatch(setUploadProgress(progress));
+      });
+      console.log('Uploaded URLs:', downloadUrls);
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {renderedPhotos ? (
@@ -96,13 +113,26 @@ const Task = () => {
             onValueChange={(value) => {
               setIsMultipleSelect(value);
               dispatch(setSelectedPhotos([]));
-          }}
-            trackColor={{false: '#767577', true: '#81b0ff'}}
+            }}
+            trackColor={{ false: '#767577', true: '#81b0ff' }}
             thumbColor={isMultipleSelect ? '#007AFF' : '#f4f3f4'}
           />
           <Text style={styles.selectionText}>Multiple</Text>
         </View>
       ) : null}
+
+
+      {selectedPhotos.length > 0 && uploadProgress > 0 && (
+        <View style={{ marginVertical: 20 }}>
+          <Text>{`${TEXT.UploadProgress} ${uploadProgress.toFixed(2)}%`}</Text>
+          <Progress.Bar
+            progress={uploadProgress / 100}
+            width={300}
+            style={{ marginTop: 10 }}
+            color="#007AFF"
+          />
+        </View>
+      )}
 
       <FlatList
         numColumns={4}
@@ -124,35 +154,35 @@ const Task = () => {
                   alignItems: 'center',
                   padding: 10,
                 }}>
-                <Text>Load More</Text>
+                <Text>{TEXT.LoadMore}</Text>
               </TouchableOpacity>
             ) : null}
             {selectedPhotos.length > 0 ? (
               <TouchableOpacity
-                style={{alignSelf: 'center', marginVertical: mvs(10)}}>
-                <Text>Upload to Firebase</Text>
+                onPress={handleUpload}
+                style={{ alignSelf: 'center', marginVertical: mvs(10) }}>
+                <Text>{TEXT.UploadToFirebase}</Text>
               </TouchableOpacity>
             ) : null}
           </>
         )}
-        renderItem={({item}) => (
+        renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => {
               handlePhotoSelect(item);
             }}>
             <Image
-              source={{uri: item?.node?.image?.uri}}
-              style={{width: ms(95), height: mvs(95)}}
+              source={{ uri: item?.node?.image?.uri }}
+              style={{ width: ms(95), height: mvs(95) }}
               resizeMode="cover"
             />
             {selectedPhotos.some(
               photo => photo.node.image.uri === item.node.image.uri,
             ) && (
-              <View style={styles.checkmarkContainer}>
-                {/* <Text style={styles.checkmark}>✓</Text> */}
-                <Image source={Images.check} style={styles.checkmark} />
-              </View>
-            )}
+                <View style={styles.checkmarkContainer}>
+                  <Image source={Images.check} style={styles.checkmark} />
+                </View>
+              )}
           </TouchableOpacity>
         )}
       />
